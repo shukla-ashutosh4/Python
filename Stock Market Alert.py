@@ -6,8 +6,8 @@ COMPANY_NAME = "Apple Inc"
 STOCK_ENDPOINT = "https://www.alphavantage.co/query"
 NEWS_ENDPOINT = "https://newsapi.org/v2/everything"
 
-STOCK_API_KEY = "P4C64PT0NVCGYOHD"
-NEWS_API_KEY  = "66cfa1ccf58c484ba10e981cd7ccd8c6"
+STOCK_API_KEY = "****"
+NEWS_API_KEY  = "****"
 
 TWILIO_SID = "ACd9dae7a3010fa0cf8ef6d7e35d24159e"
 TWILIO_AUTH_TOKEN = "006f8248114a6f07c9dae8e0244a374e"
@@ -55,8 +55,8 @@ if abs(diff_percent) > 1:
     for article in formatted_articles:
         message = client.messages.create(
             body = article,
-            from_="+19543792667",
-            to = "+919109499376"
+            from_="****",
+            to = "****"
         )
         
 
