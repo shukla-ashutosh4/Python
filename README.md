@@ -70,9 +70,53 @@ A modern, responsive website for PrismDx, featuring glass morphism design and AI
 
 ## Getting Started
 
+### Basic Setup
 1. Open `index.html` in a web browser
 2. No build process required - pure HTML/CSS/JS
 3. For local development, serve files through a local server
+
+### AI Chatbot Setup (Groq API)
+
+The chatbot uses Groq's API for intelligent responses. To enable full AI functionality:
+
+1. **Get a Groq API Key:**
+   - Visit [https://console.groq.com/](https://console.groq.com/)
+   - Create an account and get your API key
+   - Groq offers free tier with generous limits
+
+2. **Configure the API Key (Choose one method):**
+
+   **Method 1: Direct Configuration**
+   - Open `script.js`
+   - Replace `'YOUR_GROQ_API_KEY'` with your actual API key
+
+   **Method 2: Config File (Recommended)**
+   - Copy `config.js` to `my-config.js`
+   - Edit `my-config.js` and add your API key
+   - Rename `my-config.js` to `config.js`
+
+   **Method 3: Environment Variables**
+   - Set `GROQ_API_KEY` environment variable
+   - Modify script to read from environment
+
+3. **Test the Chatbot:**
+   - Open the website
+   - Click the chat icon in the bottom right
+   - Green indicator = AI is working
+   - Yellow/Red indicator = Using fallback responses
+
+### Available Models
+- **llama3-8b-8192**: Fast, good for general conversations (default)
+- **llama3-70b-8192**: More accurate, slower responses
+- **mixtral-8x7b-32768**: Good balance of speed and quality
+
+### API Features
+- ✅ Conversation memory (maintains context)
+- ✅ Healthcare-focused responses
+- ✅ Fallback responses when API is unavailable
+- ✅ Typing indicators and smooth animations
+- ✅ Error handling and status indicators
+- ✅ Rate limiting protection
 
 ## Customization
 

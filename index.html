@@ -444,6 +444,7 @@
         <div class="chatbot glass" id="chatbot">
             <div class="chatbot-header">
                 <h4>PrismDx Assistant</h4>
+                <div class="api-status" id="apiStatus" title="AI Status"></div>
                 <button class="chatbot-close" id="chatbotClose">
                     <i class="fas fa-times"></i>
                 </button>
@@ -467,6 +468,8 @@
         </div>
     </div>
 
+    <!-- Optional: Include config.js if you have one -->
+    <script src="config.js" onerror="console.log('Config file not found, using default settings')"></script>
     <script src="script.js"></script>
 </body>
 </html>

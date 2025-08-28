@@ -199,7 +199,64 @@ function animateHealthMetrics() {
     });
 }
 
-// Chatbot functionality
+// Groq API Configuration
+// You can either:
+// 1. Replace YOUR_GROQ_API_KEY below with your actual key
+// 2. Create a config.js file with GROQ_API_CONFIG object
+// 3. Set it via environment or other secure method
+
+let GROQ_CONFIG = {
+    apiKey: 'YOUR_GROQ_API_KEY', // Replace with your actual Groq API key
+    model: 'llama3-8b-8192', // or 'mixtral-8x7b-32768' for more advanced responses
+    baseURL: 'https://api.groq.com/openai/v1/chat/completions',
+    maxTokens: 500,
+    temperature: 0.7
+};
+
+// Try to load configuration from external config if available
+try {
+    if (typeof GROQ_API_CONFIG !== 'undefined') {
+        GROQ_CONFIG = { ...GROQ_CONFIG, ...GROQ_API_CONFIG };
+    }
+} catch (e) {
+    // Config file not found, use default configuration
+    console.log('Using default Groq configuration. Create config.js for custom settings.');
+}
+
+// PrismDx context for the AI
+const PRISMDX_CONTEXT = `
+You are a helpful AI assistant for PrismDx, an AI-powered healthcare platform. PrismDx focuses on:
+
+CORE SERVICES:
+- Personalized healthcare and lifestyle management
+- AI-driven solutions for obesity, diabetes, and blood pressure management
+- Tailored diet plans and nutrition guidance
+- Progress tracking and health monitoring
+- Lifestyle coaching and behavior change support
+
+KEY FEATURES:
+- Personalized Diet Plans: AI-crafted meal plans based on health conditions and preferences
+- Health Monitoring: Blood pressure, blood sugar, and weight tracking with insights
+- Lifestyle Tracking: Activity monitoring, sleep tracking, stress management
+- Educational Content: Interactive guides, video tutorials, expert insights
+- Smart Reminders: Medication, meal timing, and health check alerts
+- Community Support: Support groups, success stories, expert Q&A
+
+EXPANSION ROADMAP:
+- Phase 1 (Current): Core health management (obesity, diabetes, blood pressure)
+- Phase 2 (2024): Cardiovascular health and heart monitoring
+- Phase 3 (2025): Eye care, mental health, sleep disorders
+- Phase 4 (Future): Home diagnostics and telemedicine integration
+
+CONTACT INFO:
+- Email: hello@prismdx.com
+- Phone: +1 (555) 123-4567
+- Location: San Francisco, CA
+
+Keep responses helpful, professional, and focused on health and wellness. Encourage users to join the waitlist if they're interested. Be empathetic about health challenges and emphasize personalized, AI-driven solutions.
+`;
+
+// Chatbot functionality with Groq API
 function initChatbot() {
     const chatbotToggle = document.getElementById('chatbotToggle');
     const chatbot = document.getElementById('chatbot');
@@ -207,45 +264,36 @@ function initChatbot() {
     const chatbotInput = document.getElementById('chatbotInput');
     const chatbotSend = document.getElementById('chatbotSend');
     const chatbotMessages = document.getElementById('chatbotMessages');
+    const apiStatus = document.getElementById('apiStatus');
 
-    // Predefined responses for the chatbot
-    const responses = {
-        greetings: [
-            "Hello! I'm here to help you learn more about PrismDx. What would you like to know?",
-            "Hi there! How can I assist you with your health journey today?",
-            "Welcome! I'm your PrismDx assistant. Feel free to ask me anything about our platform."
-        ],
-        features: [
-            "PrismDx offers personalized diet plans, health monitoring, lifestyle tracking, educational content, smart reminders, and community support. Which feature interests you most?",
-            "Our main features include AI-powered diet planning, real-time health tracking, and personalized guidance for managing obesity, diabetes, and blood pressure."
-        ],
-        health: [
-            "PrismDx specializes in helping people manage obesity, diabetes, and blood pressure through personalized AI-driven solutions. We're expanding to include heart health, eye care, and home diagnostics.",
-            "Our platform focuses on chronic disease management and prevention, with personalized approaches tailored to your unique health profile."
-        ],
-        pricing: [
-            "We're currently in development and will be launching our beta program soon. Sign up for early access to get notified about pricing and availability!",
-            "PrismDx is preparing for launch. Join our waitlist to be among the first to access our platform and receive special early-bird pricing."
-        ],
-        contact: [
-            "You can reach us at hello@prismdx.com or call us at +1 (555) 123-4567. We're based in San Francisco, CA.",
-            "Feel free to contact our team at hello@prismdx.com. We'd love to hear from you and answer any questions about your health journey."
-        ],
-        default: [
-            "That's a great question! While I don't have specific information about that, I'd recommend contacting our team at hello@prismdx.com for detailed assistance.",
-            "I'm still learning! For the most accurate information, please reach out to our team directly. Is there anything else about PrismDx's features I can help with?",
-            "I'd love to help you with that! For specific details, our team at hello@prismdx.com would be the best resource. What else would you like to know about our platform?"
-        ]
-    };
+    let conversationHistory = [
+        {
+            role: 'system',
+            content: PRISMDX_CONTEXT
+        }
+    ];
 
-    // Keywords for response matching
-    const keywords = {
-        greetings: ['hello', 'hi', 'hey', 'greetings', 'good morning', 'good afternoon', 'good evening'],
-        features: ['features', 'what can', 'what does', 'capabilities', 'functionality', 'diet plan', 'tracking', 'monitoring'],
-        health: ['health', 'diabetes', 'obesity', 'blood pressure', 'weight', 'conditions', 'disease', 'medical'],
-        pricing: ['price', 'cost', 'pricing', 'how much', 'subscription', 'payment', 'free', 'trial'],
-        contact: ['contact', 'reach', 'phone', 'email', 'address', 'location', 'support', 'help']
-    };
+    // Update API status indicator
+    function updateApiStatus(status) {
+        apiStatus.className = 'api-status';
+        switch(status) {
+            case 'online':
+                apiStatus.classList.add('online');
+                apiStatus.title = 'AI Assistant Online';
+                break;
+            case 'offline':
+                apiStatus.classList.add('offline');
+                apiStatus.title = 'AI Assistant Offline - Using Fallback Responses';
+                break;
+            case 'error':
+                apiStatus.classList.add('error');
+                apiStatus.title = 'AI Assistant Error - Please Try Again';
+                break;
+        }
+    }
+
+    // Check API status on initialization
+    checkApiStatus();
 
     // Toggle chatbot visibility
     chatbotToggle.addEventListener('click', () => {
@@ -260,26 +308,121 @@ function initChatbot() {
     });
 
     // Send message functionality
-    function sendMessage() {
+    async function sendMessage() {
         const message = chatbotInput.value.trim();
         if (message) {
             addMessage(message, 'user');
             chatbotInput.value = '';
             
-            // Simulate typing delay
-            setTimeout(() => {
-                const response = generateResponse(message);
+            // Add user message to conversation history
+            conversationHistory.push({
+                role: 'user',
+                content: message
+            });
+            
+            // Show typing indicator
+            addTypingIndicator();
+            
+            try {
+                const response = await getGroqResponse(message);
+                removeTypingIndicator();
                 addMessage(response, 'bot');
-            }, 1000);
+                updateApiStatus('online');
+                
+                // Add bot response to conversation history
+                conversationHistory.push({
+                    role: 'assistant',
+                    content: response
+                });
+                
+                // Keep conversation history manageable (last 10 messages + system prompt)
+                if (conversationHistory.length > 21) {
+                    conversationHistory = [
+                        conversationHistory[0], // Keep system prompt
+                        ...conversationHistory.slice(-20) // Keep last 20 messages
+                    ];
+                }
+            } catch (error) {
+                removeTypingIndicator();
+                updateApiStatus('error');
+                addMessage(getFallbackResponse(message), 'bot');
+                console.error('Groq API Error:', error);
+                
+                // Show user-friendly error message if it's an API key issue
+                if (error.message.includes('API key not configured')) {
+                    addMessage("⚠️ The AI assistant requires configuration to work properly. Currently using basic responses.", 'bot');
+                }
+            }
         }
     }
 
     chatbotSend.addEventListener('click', sendMessage);
     chatbotInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
             sendMessage();
         }
     });
+
+    // Get response from Groq API
+    async function getGroqResponse(message) {
+        // Check if API key is configured
+        if (!GROQ_CONFIG.apiKey || GROQ_CONFIG.apiKey === 'YOUR_GROQ_API_KEY') {
+            throw new Error('Groq API key not configured');
+        }
+
+        const response = await fetch(GROQ_CONFIG.baseURL, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${GROQ_CONFIG.apiKey}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                model: GROQ_CONFIG.model,
+                messages: conversationHistory,
+                max_tokens: GROQ_CONFIG.maxTokens,
+                temperature: GROQ_CONFIG.temperature,
+                stream: false
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(`API Error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+        }
+
+        const data = await response.json();
+        return data.choices[0]?.message?.content || 'I apologize, but I encountered an issue generating a response. Please try again.';
+    }
+
+    // Fallback responses when API fails
+    function getFallbackResponse(message) {
+        const lowerMessage = message.toLowerCase();
+        
+        const fallbackResponses = {
+            greetings: "Hello! I'm your PrismDx assistant. While I'm experiencing some technical difficulties, I'm here to help you learn about our AI-powered healthcare platform. What would you like to know?",
+            features: "PrismDx offers personalized diet plans, health monitoring, lifestyle tracking, educational content, smart reminders, and community support. I'd love to tell you more about any specific feature!",
+            health: "PrismDx specializes in helping people manage obesity, diabetes, and blood pressure through personalized AI-driven solutions. We're expanding to include heart health, eye care, and home diagnostics.",
+            pricing: "We're currently preparing for launch! Sign up for our waitlist at the bottom of the page to get early access and special pricing.",
+            contact: "You can reach our team at hello@prismdx.com or call +1 (555) 123-4567. We're based in San Francisco, CA.",
+            default: "I apologize, but I'm experiencing some technical difficulties. For detailed information about PrismDx, please contact our team at hello@prismdx.com or explore our website. Is there anything specific I can help you with?"
+        };
+
+        // Simple keyword matching for fallback
+        if (['hello', 'hi', 'hey'].some(word => lowerMessage.includes(word))) {
+            return fallbackResponses.greetings;
+        } else if (['feature', 'what', 'how', 'diet', 'track'].some(word => lowerMessage.includes(word))) {
+            return fallbackResponses.features;
+        } else if (['health', 'diabetes', 'obesity', 'pressure'].some(word => lowerMessage.includes(word))) {
+            return fallbackResponses.health;
+        } else if (['price', 'cost', 'pricing', 'much'].some(word => lowerMessage.includes(word))) {
+            return fallbackResponses.pricing;
+        } else if (['contact', 'reach', 'phone', 'email'].some(word => lowerMessage.includes(word))) {
+            return fallbackResponses.contact;
+        }
+        
+        return fallbackResponses.default;
+    }
 
     // Add message to chat
     function addMessage(text, sender) {
@@ -299,22 +442,82 @@ function initChatbot() {
         
         chatbotMessages.appendChild(messageDiv);
         chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
+        
+        // Add entrance animation
+        messageDiv.style.opacity = '0';
+        messageDiv.style.transform = 'translateY(20px)';
+        setTimeout(() => {
+            messageDiv.style.transition = 'all 0.3s ease-out';
+            messageDiv.style.opacity = '1';
+            messageDiv.style.transform = 'translateY(0)';
+        }, 50);
     }
 
-    // Generate response based on user input
-    function generateResponse(message) {
-        const lowerMessage = message.toLowerCase();
+    // Add typing indicator
+    function addTypingIndicator() {
+        const typingDiv = document.createElement('div');
+        typingDiv.className = 'message bot-message typing-indicator';
+        typingDiv.id = 'typing-indicator';
         
-        for (const [category, keywordList] of Object.entries(keywords)) {
-            if (keywordList.some(keyword => lowerMessage.includes(keyword))) {
-                const responseList = responses[category];
-                return responseList[Math.floor(Math.random() * responseList.length)];
-            }
+        const avatar = document.createElement('div');
+        avatar.className = 'message-avatar';
+        avatar.innerHTML = '<i class="fas fa-robot"></i>';
+        
+        const content = document.createElement('div');
+        content.className = 'message-content typing-content';
+        content.innerHTML = `
+            <div class="typing-animation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        `;
+        
+        typingDiv.appendChild(avatar);
+        typingDiv.appendChild(content);
+        
+        chatbotMessages.appendChild(typingDiv);
+        chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
+    }
+
+    // Remove typing indicator
+    function removeTypingIndicator() {
+        const typingIndicator = document.getElementById('typing-indicator');
+        if (typingIndicator) {
+            typingIndicator.remove();
         }
-        
-        // Default response
-        const defaultResponses = responses.default;
-        return defaultResponses[Math.floor(Math.random() * defaultResponses.length)];
+    }
+
+    // Check API status
+    async function checkApiStatus() {
+        try {
+            if (!GROQ_CONFIG.apiKey || GROQ_CONFIG.apiKey === 'YOUR_GROQ_API_KEY') {
+                updateApiStatus('offline');
+                return;
+            }
+
+            // Test API with a simple request
+            const testResponse = await fetch(GROQ_CONFIG.baseURL, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${GROQ_CONFIG.apiKey}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    model: GROQ_CONFIG.model,
+                    messages: [{ role: 'user', content: 'test' }],
+                    max_tokens: 1
+                })
+            });
+
+            if (testResponse.ok) {
+                updateApiStatus('online');
+            } else {
+                updateApiStatus('error');
+            }
+        } catch (error) {
+            updateApiStatus('offline');
+        }
     }
 }
 
